@@ -1,0 +1,188 @@
+﻿<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <title>cauanzera</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#000000">
+    <link rel="stylesheet" href="index.css">
+</head>
+<body class="is-booting">
+
+<nav class="nav-tech" aria-label="Navegação principal">
+  <div class="nav-tech__wrap">
+    <a class="nav-tech__brand" href="#top" aria-label="Início">
+      <span class="nav-tech__dot" aria-hidden="true"></span>
+      <span class="nav-tech__name">CAUANZERA</span>
+    </a>
+
+    <button class="nav-tech__toggle" type="button" aria-expanded="false" aria-controls="navTechMenu">
+      <span class="nav-tech__burger" aria-hidden="true"></span>
+      <span class="sr-only">Abrir menu</span>
+    </button>
+
+    <div id="navTechMenu" class="nav-tech__menu">
+      <a class="nav-tech__link" href="#sobre" data-nav="sobre">Sobre</a>
+      <a class="nav-tech__link" href="#contato" data-nav="contato">Contato</a>
+      <a class="nav-tech__link" href="#projects" data-nav="projects">Projetos</a>
+      <button class="nav-tech__link nav-tech__link--btn" type="button" data-nav="sound">
+        Som
+      </button>
+    </div>
+  </div>
+</nav>
+
+
+<div id="bootLoader" class="boot-loader" aria-hidden="false">
+    <canvas id="bootFx" aria-hidden="true"></canvas>
+    <div class="boot-loader__inner">
+        <div class="resonance" aria-hidden="true">
+            <div class="resonance__line"></div>
+        </div>
+        <div class="boot-loader__spinner"></div>
+        <p class="boot-loader__text">Carregando...</p>
+    </div>
+</div>
+
+
+<!-- CANVAS -->
+<canvas id="particles"></canvas>
+<canvas id="overlay2d"></canvas>
+
+<div id="hudStopwatch" class="hud hud-stopwatch">00:00:00</div>
+<div id="hudClock" class="hud hud-clock">00:00:00</div>
+
+<!-- CENTER STACK -->
+<section class="section center-stack">
+
+    <!-- PROJETOS -->
+    <section id="projects" class="projects hidden">
+        <div class="projects-wrapper">
+
+            <!-- TÍTULO -->
+            <h2 class="projects-title">Projetos desenvolvidos</h2>
+
+            <!-- GRID -->
+            <div class="projects-grid">
+               <a href="https://seuprojeto5.com" target="_blank" class="project-card">
+  <div class="card-inner">
+    <div class="card-front" style="background-image: url('https://picsum.photos/600/400?5');">
+      <div class="overlay">
+        <h3>Mengão</h3>
+        <p>Imparável</p>
+      </div>
+    </div>
+
+    <div class="card-back">
+      <h3>Tecnologias</h3>
+      <p>Vue.js, Node.js, MongoDB</p>
+      <span class="hint">Clique para visitar</span>
+    </div>
+  </div>
+</a>
+
+
+                <a href="https://seuprojeto2.com" target="_blank" class="project-card">
+  <div class="card-inner">
+    <div class="card-front" style="background-image: url('https://picsum.photos/600/400?2');">
+      <div class="overlay">
+        <h3>Projeto Beta</h3>
+        <p>Não sobrou nada</p>
+      </div>
+    </div>
+
+    <div class="card-back">
+      <h3>Tecnologias</h3>
+      <p>React, CSS Modules</p>
+      <span class="hint">Clique para visitar</span>
+    </div>
+  </div>
+</a>
+
+                <a href="https://seuprojeto3.com" target="_blank" class="project-card">
+  <div class="card-inner">
+    <div class="card-front" style="background-image: url('https://picsum.photos/600/400?3');">
+      <div class="overlay">
+        <h3>Gabigol</h3>
+        <p>Craque</p>
+      </div>
+    </div>
+
+    <div class="card-back">
+      <h3>Tecnologias</h3>
+      <p>Next.js, Tailwind CSS</p>
+      <span class="hint">Clique para visitar</span>
+    </div>
+  </div>
+</a>
+
+                <a href="https://seuprojeto4.com" target="_blank" class="project-card">
+  <div class="card-inner">
+    <div class="card-front" style="background-image: url('https://picsum.photos/600/400?4');">
+      <div class="overlay">
+        <h3>Tralalero</h3>
+        <p>Tralala</p>
+      </div>
+    </div>
+
+    <div class="card-back">
+      <h3>Tecnologias</h3>
+      <p>TypeScript, Firebase</p>
+      <span class="hint">Clique para visitar</span>
+    </div>
+  </div>
+</a>
+            </div>
+
+        </div>
+    </section>
+
+    
+
+    <!-- SOBRE -->
+    <div id="sobreText" class="stack-item blur-text">
+        <h2>Sobre mim</h2>
+        <p>Desenvolvedor em formação, focado em experiências visuais e interfaces imersivas.</p>
+    </div>
+
+    <!-- CONTATO -->
+    <div id="contatoText" class="stack-item blur-text">
+        <h2>Contato</h2>
+        <p>caua.pbritto@gmail.com</p>
+    </div>
+
+</section>
+
+<!-- PROJECT VIEW -->
+<section id="projectView" class="project-view" aria-hidden="true">
+    <div class="project-view__backdrop" aria-hidden="true"></div>
+    <div class="project-view__panel" role="dialog" aria-modal="true" aria-label="Detalhes do projeto" tabindex="-1">
+        <header class="project-view__header">
+            <button class="project-view__back" type="button">Voltar</button>
+        </header>
+        <div class="project-view__hero" role="img" aria-label="Capa do projeto"></div>
+        <div class="project-view__body">
+            <h2 class="project-view__title"></h2>
+            <p class="project-view__desc"></p>
+            <div class="project-view__tech">
+                <h3 class="project-view__tech-title"></h3>
+                <p class="project-view__tech-desc"></p>
+            </div>
+            <div class="project-view__actions">
+                <button class="project-view__visit" type="button">Visitar site</button>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- FOCUS VIGNETTE -->
+<div id="focusVignette" class="focus-vignette" aria-hidden="true"></div>
+
+<!-- SCROLL -->
+<div class="scroll-spacer"></div>
+
+<!-- SOUND TOGGLE removido: controle agora existe apenas na navbar -->
+
+<script src="script.js"></script>
+</body>
+</html>
