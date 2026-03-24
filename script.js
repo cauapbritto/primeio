@@ -52,6 +52,47 @@ const isMobile = window.matchMedia("(max-width: 768px)").matches;
 const isMobileUI = isTouch || isMobile;
 document.documentElement.classList.toggle("is-touch", isTouch);
 
+const canvasTheme = {
+    accentRgb: "0, 255, 255",
+    heroGlowRgb: "0, 255, 255",
+    particleRgb: "200, 220, 255",
+    networkRgb: "0, 255, 255",
+    roseRgb: "255, 120, 150",
+    roseCoreRgb: "255, 244, 214",
+    roseGlowRgb: "255, 170, 194",
+    textRgb: "255, 255, 255",
+    isLight: false
+};
+
+/**
+ * Sincroniza as cores do canvas com as variaveis CSS do tema atual.
+ */
+function syncCanvasTheme() {
+    const rootStyles = getComputedStyle(document.documentElement);
+    canvasTheme.accentRgb = rootStyles.getPropertyValue("--accent-rgb").trim() || canvasTheme.accentRgb;
+    canvasTheme.heroGlowRgb = rootStyles.getPropertyValue("--hero-glow-rgb").trim() || canvasTheme.heroGlowRgb;
+    canvasTheme.particleRgb = rootStyles.getPropertyValue("--particle-rgb").trim() || canvasTheme.particleRgb;
+    canvasTheme.networkRgb = rootStyles.getPropertyValue("--network-rgb").trim() || canvasTheme.networkRgb;
+    canvasTheme.roseRgb = rootStyles.getPropertyValue("--rose-rgb").trim() || canvasTheme.roseRgb;
+    canvasTheme.roseCoreRgb = rootStyles.getPropertyValue("--rose-core-rgb").trim() || canvasTheme.roseCoreRgb;
+    canvasTheme.roseGlowRgb = rootStyles.getPropertyValue("--rose-glow-rgb").trim() || canvasTheme.roseGlowRgb;
+    canvasTheme.textRgb = rootStyles.getPropertyValue("--text-rgb").trim() || canvasTheme.textRgb;
+    canvasTheme.isLight = document.documentElement.getAttribute("data-theme") === "light";
+}
+
+syncCanvasTheme();
+
+const themeObserver = new MutationObserver(mutations => {
+    if (mutations.some((mutation) => mutation.attributeName === "data-theme")) {
+        syncCanvasTheme();
+    }
+});
+
+themeObserver.observe(document.documentElement, {
+    attributes: true,
+    attributeFilter: ["data-theme"]
+});
+
 /* =========================
    AUDIO
 ========================= */
@@ -389,6 +430,33 @@ const getScrollTargets = () => {
    ESTRELAS 3D (2D CANVAS)
 ========================= */
 const stars = [];
+const lightBlooms = [];
+
+function isFieldLocked() {
+    return (
+        starCinematicLock ||
+        document.body.classList.contains("is-transitioning") ||
+        document.body.classList.contains("is-project-open")
+    );
+}
+
+function getFieldTravelSpeed() {
+    const baseSpeed = 2;
+    const lockActive = isFieldLocked();
+    const warpContribution = lockActive ? 0 : (warp * WARP_ADD);
+    const impulseContribution = lockActive ? 0 : (scrollImpulse * IMPULSE_STAR_MULT);
+    const speed = baseSpeed + impulseContribution + warpContribution;
+    return Math.max(-35, Math.min(55, speed));
+}
+
+function projectFieldPoint(x, y, z, distance) {
+    const cx = canvas.width / 2;
+    const cy = canvas.height / 2;
+    return {
+        x: cx + (x / z) * distance,
+        y: cy + (y / z) * distance
+    };
+}
 
 /**
  * Representa uma estrela da malha pseudo-3D desenhada no canvas.
@@ -409,19 +477,9 @@ class Star {
     /**
      * Atualiza a profundidade da estrela combinando velocidade base, warp e impulso de scroll.
      */
-    update() {
-        const baseSpeed = 2;
-        const lockActive =
-            starCinematicLock ||
-            document.body.classList.contains("is-transitioning") ||
-            document.body.classList.contains("is-project-open");
-        // Durante transicoes e modal aberto, congela o efeito cinematografico para evitar artefatos.
-        const warpContribution = lockActive ? 0 : (warp * WARP_ADD);
-        const impulseContribution = lockActive ? 0 : (scrollImpulse * IMPULSE_STAR_MULT);
-        const speed = baseSpeed + impulseContribution + warpContribution;
-        const finalSpeed = Math.max(-35, Math.min(55, speed));
+    update(travelSpeed) {
         this.prevZ = this.z;
-        this.z -= finalSpeed * this.speed;
+        this.z -= travelSpeed * this.speed;
         if (this.z <= 1) this.reset();
         if (this.z > canvas.width * 2) this.reset();
     }
@@ -430,26 +488,123 @@ class Star {
      */
     draw() {
         if (!canvas || !ctx) return;
-        const cx = canvas.width / 2;
-        const cy = canvas.height / 2;
         const warpStretch = 1 + warp * 0.35;
         const prevZWarp = this.prevZ + warp * 80;
-        const x = cx + (this.x / this.z) * 500;
-        const y = cy + (this.y / this.z) * 500;
-        const px = cx + (this.x / prevZWarp) * (500 * warpStretch);
-        const py = cy + (this.y / prevZWarp) * (500 * warpStretch);
-        const alpha = 1 - this.z / canvas.width;
-        ctx.strokeStyle = `rgba(200,220,255,${alpha})`;
-        ctx.lineWidth = alpha * (2 + warp * 2) * 1.5;
+        const point = projectFieldPoint(this.x, this.y, this.z, 500);
+        const previousPoint = projectFieldPoint(this.x, this.y, prevZWarp, 500 * warpStretch);
+        const alpha = (1 - this.z / canvas.width) * (canvasTheme.isLight ? 0.72 : 1);
+        const starWidth = canvasTheme.isLight
+            ? Math.max(0.9, alpha * (2.8 + warp * 2.4) * 2.2)
+            : alpha * (2 + warp * 2) * 1.5;
+        ctx.strokeStyle = `rgba(${canvasTheme.particleRgb},${alpha})`;
+        ctx.lineWidth = starWidth;
         ctx.beginPath();
-        ctx.moveTo(x, y);
-        ctx.lineTo(px, py);
+        ctx.moveTo(point.x, point.y);
+        ctx.lineTo(previousPoint.x, previousPoint.y);
         ctx.stroke();
     }
 }
+
+/**
+ * Flores suaves no fundo do modo claro, usando a mesma projecao do campo de estrelas.
+ */
+class LightBloom {
+    constructor() { this.reset(); }
+    reset() {
+        if (!canvas) return;
+        this.x = (Math.random() - 0.5) * canvas.width * 2.2;
+        this.y = (Math.random() - 0.5) * canvas.height * 2.2;
+        this.z = canvas.width * (0.18 + Math.random() * 1.2);
+        this.prevZ = this.z;
+        this.speed = 0.22 + Math.random() * 0.48;
+        this.baseSize = (isMobileUI ? 12 : 16) + Math.random() * (isMobileUI ? 6 : 10);
+        this.rotation = Math.random() * Math.PI * 2;
+        this.rotationSpeed = (Math.random() - 0.5) * 0.02;
+        this.petalCount = Math.random() > 0.72 ? 6 : 5;
+    }
+    update(travelSpeed) {
+        this.prevZ = this.z;
+        this.z -= travelSpeed * this.speed;
+        this.rotation += this.rotationSpeed + travelSpeed * 0.0008;
+        if (this.z <= 1) this.reset();
+        if (this.z > canvas.width * 2) this.reset();
+    }
+    draw() {
+        if (!canvas || !ctx || !canvasTheme.isLight) return;
+        const warpStretch = 1 + warp * 0.35;
+        const prevZWarp = this.prevZ + warp * 80;
+        const point = projectFieldPoint(this.x, this.y, this.z, 500);
+        const previousPoint = projectFieldPoint(this.x, this.y, prevZWarp, 500 * warpStretch);
+        const coords = [point.x, point.y, previousPoint.x, previousPoint.y];
+        if (!coords.every(Number.isFinite)) return;
+
+        const alpha = Math.max(0, Math.min(0.68, (1 - this.z / canvas.width) * 0.74));
+        if (alpha <= 0.05) return;
+
+        const size = this.baseSize * (0.42 + alpha * 1.8 + warp * 0.12);
+        const margin = size * 4;
+        if (
+            point.x < -margin ||
+            point.x > canvas.width + margin ||
+            point.y < -margin ||
+            point.y > canvas.height + margin
+        ) {
+            return;
+        }
+
+        ctx.save();
+        ctx.strokeStyle = `rgba(${canvasTheme.roseGlowRgb},${alpha * 0.16})`;
+        ctx.lineWidth = Math.max(0.7, size * 0.05);
+        ctx.beginPath();
+        ctx.moveTo(previousPoint.x, previousPoint.y);
+        ctx.lineTo(point.x, point.y);
+        ctx.stroke();
+
+        ctx.translate(point.x, point.y);
+        ctx.rotate(this.rotation);
+        ctx.shadowColor = `rgba(${canvasTheme.roseGlowRgb},${alpha * 0.22})`;
+        ctx.shadowBlur = size * 0.45;
+
+        const petalOffset = size * 0.56;
+        const petalRadiusX = size * 0.28;
+        const petalRadiusY = size * 0.5;
+        for (let i = 0; i < this.petalCount; i++) {
+            ctx.save();
+            ctx.rotate((Math.PI * 2 * i) / this.petalCount);
+            ctx.fillStyle = `rgba(${canvasTheme.roseRgb},${Math.min(0.9, alpha * 1.18)})`;
+            ctx.beginPath();
+            ctx.ellipse(0, petalOffset, petalRadiusX, petalRadiusY, 0, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.strokeStyle = `rgba(${canvasTheme.roseGlowRgb},${alpha * 0.34})`;
+            ctx.lineWidth = Math.max(0.6, size * 0.04);
+            ctx.stroke();
+            ctx.restore();
+        }
+
+        ctx.fillStyle = `rgba(${canvasTheme.roseGlowRgb},${alpha * 0.05})`;
+        ctx.beginPath();
+        ctx.arc(0, 0, size * 0.72, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.fillStyle = `rgba(${canvasTheme.roseCoreRgb},${Math.min(0.82, alpha * 1.2)})`;
+        ctx.beginPath();
+        ctx.arc(0, 0, size * 0.2, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.strokeStyle = `rgba(${canvasTheme.roseGlowRgb},${alpha * 0.28})`;
+        ctx.lineWidth = Math.max(0.6, size * 0.05);
+        ctx.beginPath();
+        ctx.arc(0, 0, size * 0.38, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.restore();
+    }
+}
+
 if (canvas) {
     const starCount = isMobileUI ? 120 : 300;
+    const bloomCount = isMobileUI ? 8 : 18;
     for (let i = 0; i < starCount; i++) stars.push(new Star());
+    for (let i = 0; i < bloomCount; i++) lightBlooms.push(new LightBloom());
 }
 
 /* =========================
@@ -474,13 +629,14 @@ if (!isTouch) {
  */
 function drawMouseNetwork() {
     if (!octx || isTouch) return;
+    const alphaBoost = canvasTheme.isLight ? 0.58 : 1;
     for (let i = mouseParticles.length - 1; i >= 0; i--) {
         const p = mouseParticles[i];
         p.x += p.vx;
         p.y += p.vy;
         p.life -= 0.8;
 
-        octx.fillStyle = `rgba(0,255,255,${p.life / 100})`;
+        octx.fillStyle = `rgba(${canvasTheme.networkRgb},${(p.life / 100) * alphaBoost})`;
         octx.beginPath();
         octx.arc(p.x, p.y, 2, 0, Math.PI*2);
         octx.fill();
@@ -489,7 +645,7 @@ function drawMouseNetwork() {
             const p2 = mouseParticles[j];
             const dist = Math.hypot(p.x-p2.x, p.y-p2.y);
             if (dist < 100) {
-                octx.strokeStyle = `rgba(0,255,255,${(1-dist/100)*(p.life/100)})`;
+                octx.strokeStyle = `rgba(${canvasTheme.networkRgb},${(1-dist/100)*(p.life/100) * alphaBoost})`;
                 octx.lineWidth = 0.5;
                 octx.beginPath();
                 octx.moveTo(p.x,p.y);
@@ -513,6 +669,11 @@ function drawWireframeText(opacity) {
     if (isMobileUI) return;
     if (!octx || !overlay) return;
     if (opacity <= 0) return;
+    const strokeRgb = canvasTheme.isLight ? canvasTheme.textRgb : canvasTheme.accentRgb;
+    const glowRgb = canvasTheme.isLight ? canvasTheme.heroGlowRgb : canvasTheme.accentRgb;
+    const heroLabel = "Cauanzera";
+    const textX = overlay.width / 2;
+    const textY = overlay.height / 2;
     octx.save();
     octx.globalAlpha = opacity;
     const baseSize = Math.min(overlay.width, overlay.height) * 0.18;
@@ -521,11 +682,21 @@ function drawWireframeText(opacity) {
 
     octx.textAlign = "center";
     octx.textBaseline = "middle";
-    octx.strokeStyle = "rgba(0,255,255,0.9)";
-    octx.lineWidth = 2;
-    octx.shadowColor = "rgba(0,255,255,0.6)";
-    octx.shadowBlur = 20;
-    octx.strokeText("Cauanzera", overlay.width / 2, overlay.height / 2);
+    if (canvasTheme.isLight) {
+        octx.fillStyle = `rgba(${glowRgb},0.12)`;
+        octx.shadowColor = `rgba(${glowRgb},0.52)`;
+        octx.shadowBlur = 34;
+        octx.fillText(heroLabel, textX, textY);
+
+        octx.strokeStyle = `rgba(${glowRgb},0.22)`;
+        octx.lineWidth = 4.8;
+        octx.strokeText(heroLabel, textX, textY);
+    }
+    octx.strokeStyle = `rgba(${strokeRgb},${canvasTheme.isLight ? 0.84 : 0.9})`;
+    octx.lineWidth = canvasTheme.isLight ? 3 : 2;
+    octx.shadowColor = `rgba(${glowRgb},${canvasTheme.isLight ? 0.36 : 0.6})`;
+    octx.shadowBlur = canvasTheme.isLight ? 20 : 20;
+    octx.strokeText(heroLabel, textX, textY);
 
     octx.restore();
 }
@@ -535,9 +706,17 @@ function drawWireframeText(opacity) {
  */
 const renderStars = () => {
     if (!ctx || !canvas) return;
-    ctx.fillStyle = "rgba(0,0,0,0.35)";
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    stars.forEach(s => { s.update(); s.draw(); });
+    if (canvasTheme.isLight) {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+    } else {
+        ctx.fillStyle = "rgba(0,0,0,0.35)";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+    }
+    const travelSpeed = getFieldTravelSpeed();
+    stars.forEach(s => { s.update(travelSpeed); s.draw(); });
+    if (canvasTheme.isLight) {
+        lightBlooms.forEach(bloom => { bloom.update(travelSpeed); bloom.draw(); });
+    }
 };
 
 /* =========================
@@ -1181,33 +1360,7 @@ const closeProject = () => {
         return;
     }
 
-    const targetRect = activeCard.getBoundingClientRect();
-    const panelRect = projectPanel.getBoundingClientRect();
-    const closeClone = activeCard.cloneNode(true);
-    closeClone.classList.add("is-close-clone");
-    closeClone.classList.remove("is-source-hidden");
-    closeClone.style.top = `${panelRect.top}px`;
-    closeClone.style.left = `${panelRect.left}px`;
-    closeClone.style.width = `${panelRect.width}px`;
-    closeClone.style.height = `${panelRect.height}px`;
-    closeClone.style.transform = "translate3d(0px, 0px, 0) scale(1)";
-
-    document.body.appendChild(closeClone);
-    projectPanel.style.opacity = "0";
-    projectPanel.style.pointerEvents = "none";
-
-    closeClone.getBoundingClientRect();
-
-    const scaleX = targetRect.width / panelRect.width;
-    const scaleY = targetRect.height / panelRect.height;
-    const translateX = (targetRect.left + targetRect.width / 2) - (panelRect.left + panelRect.width / 2);
-    const translateY = (targetRect.top + targetRect.height / 2) - (panelRect.top + panelRect.height / 2);
-    const duration = CLONE_CLOSE_MS;
-    const settleTranslateX = translateX * 0.9;
-    const settleTranslateY = translateY * 0.9;
-
     const finalizeClose = () => {
-        closeClone.remove();
         if (projectPanel) {
             projectPanel.style.opacity = "";
             projectPanel.style.pointerEvents = "";
@@ -1215,42 +1368,7 @@ const closeProject = () => {
         cleanupProjectState();
     };
 
-    if (closeClone.animate) {
-        const animation = closeClone.animate(
-            [
-                {
-                    transform: "translate3d(0px, 0px, 0) scale(1)",
-                    opacity: 1,
-                    offset: 0
-                },
-                {
-                    transform: `translate3d(${settleTranslateX}px, ${settleTranslateY}px, 0) scale(${scaleX}, ${scaleY})`,
-                    opacity: 0.94,
-                    offset: 0.72,
-                    easing: "cubic-bezier(0.22, 0.9, 0.2, 1)"
-                },
-                {
-                    transform: `translate3d(${translateX}px, ${translateY}px, 0) scale(${scaleX}, ${scaleY})`,
-                    opacity: 0.88,
-                    offset: 1,
-                    easing: "cubic-bezier(0.2, 0.72, 0.2, 1)"
-                }
-            ],
-            { duration, fill: "forwards" }
-        );
-        animation.onfinish = finalizeClose;
-    } else {
-        const phaseOneMs = Math.round(duration * 0.72);
-        closeClone.style.transition = `transform ${phaseOneMs}ms cubic-bezier(0.22, 0.9, 0.2, 1), opacity ${phaseOneMs}ms ease`;
-        closeClone.style.transform = `translate3d(${settleTranslateX}px, ${settleTranslateY}px, 0) scale(${scaleX}, ${scaleY})`;
-        closeClone.style.opacity = "0.94";
-        window.setTimeout(() => {
-            closeClone.style.transition = `transform ${duration - phaseOneMs}ms cubic-bezier(0.2, 0.72, 0.2, 1), opacity ${duration - phaseOneMs}ms ease`;
-            closeClone.style.transform = `translate3d(${translateX}px, ${translateY}px, 0) scale(${scaleX}, ${scaleY})`;
-            closeClone.style.opacity = "0.88";
-            window.setTimeout(finalizeClose, duration - phaseOneMs);
-        }, 20);
-    }
+    finalizeClose();
 };
 
 /**
@@ -1305,6 +1423,19 @@ projectCards.forEach(card => {
         }
         e.preventDefault();
         openProject(card);
+    });
+});
+
+const contactCards = document.querySelectorAll(".contact-card");
+contactCards.forEach(card => {
+    card.addEventListener("mouseenter", () => {
+        playHoverSfx();
+    });
+    card.addEventListener("click", () => {
+        if (!audioMuted && audioArmed) {
+            sfxClick.currentTime = 0;
+            sfxClick.play().catch(() => {});
+        }
     });
 });
 
