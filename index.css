@@ -1,7 +1,6 @@
 @font-face {
     font-family: "Zero Hour";
-    src: url("./assets/fonts/ZeroHour.woff2") format("woff2"),
-        url("./assets/fonts/ZeroHour.woff") format("woff");
+    src: url("./assets/fonts/ZeroHour.woff2") format("woff2");
     font-weight: 400;
     font-style: normal;
     font-display: swap;
@@ -19,6 +18,13 @@
 
 html {
     scroll-behavior: auto !important;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+}
+
+/* Esconder scrollbar em todos os navegadores webkit */
+html::-webkit-scrollbar {
+    display: none;
 }
 
 :root {
@@ -75,6 +81,7 @@ html {
     --text-rgb:            255, 255, 255;
     --bg-rgb:              0, 0, 0;
     --panel-shadow:        rgba(0, 0, 0, 0.50);
+    --liquid-effect-rgb:   220, 200, 160;
 }
 
 [data-theme="light"] {
@@ -120,12 +127,13 @@ html {
     --hero-glow-rgb:       246, 218, 172;
     --particle-rgb:        0, 0, 0;
     --network-rgb:         0, 0, 0;
-    --rose-rgb:            18, 18, 18;
-    --rose-core-rgb:       34, 34, 34;
-    --rose-glow-rgb:       108, 218, 218;
+    --rose-rgb:            220, 100, 140;
+    --rose-core-rgb:       248, 200, 220;
+    --rose-glow-rgb:       220, 140, 170;
     --text-rgb:            33, 23, 15;
     --bg-rgb:              216, 197, 170;
     --panel-shadow:        rgba(76, 60, 42, 0.18);
+    --liquid-effect-rgb:   0, 0, 0;
 }
 
 body,
@@ -163,6 +171,11 @@ body {
     height: 100%;
     cursor: default;
     -webkit-text-size-adjust: 100%;
+    scrollbar-width: none;
+}
+
+body::-webkit-scrollbar {
+    display: none;
 }
 
 /* =========================
@@ -514,7 +527,7 @@ h2,
 .project-card .overlay {
     position: absolute;
     inset: 0;
-    background: linear-gradient(to top, var(--card-overlay-bottom), var(--card-overlay-top));
+    background: linear-gradient(to top, rgba(0, 0, 0, 0.85), rgba(0, 0, 0, 0.20));
     display: flex;
     flex-direction: column;
     justify-content: flex-end;
@@ -700,6 +713,7 @@ h2,
     backface-visibility: hidden; /* ESCONDE o lado de trás ao girar */
     border-radius: 10px;
 }
+
 
 /* 5. Estilo específico do Verso */
 .card-back {
@@ -1253,6 +1267,32 @@ body.is-project-open {
   pointer-events: none;
 }
 
+/* Efeito líquido (controlado por JS) */
+.nav-tech__wrap::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(var(--liquid-effect-rgb), 0.75) 25%,
+    rgba(var(--liquid-effect-rgb), 0.75) 50%,
+    transparent 100%
+  );
+  opacity: 0;
+  pointer-events: none;
+  filter: blur(8px);
+  will-change: transform, opacity;
+}
+
+/* Ativa o efeito quando navbar não está em hover */
+.nav-tech__wrap.nav-liquid-active::after {
+  animation: liquidWave 1.2s ease-in-out forwards;
+}
 
 .nav-tech__brand {
   display: inline-flex;
@@ -1420,6 +1460,24 @@ body.is-project-open {
 @media (prefers-reduced-motion: reduce) {
   .nav-tech__wrap {
     animation: none;
+  }
+}
+
+/* Efeito líquido interno na navbar */
+@keyframes liquidWave {
+  0% {
+    transform: translateX(-100%) translateY(-50%);
+    opacity: 0;
+  }
+  25% {
+    opacity: 0.4;
+  }
+  75% {
+    opacity: 0.4;
+  }
+  100% {
+    transform: translateX(200%) translateY(-50%);
+    opacity: 0;
   }
 }
 

@@ -61,6 +61,7 @@ const canvasTheme = {
     roseCoreRgb: "255, 244, 214",
     roseGlowRgb: "255, 170, 194",
     textRgb: "255, 255, 255",
+    liquidEffectRgb: "220, 200, 160",
     isLight: false
 };
 
@@ -77,6 +78,7 @@ function syncCanvasTheme() {
     canvasTheme.roseCoreRgb = rootStyles.getPropertyValue("--rose-core-rgb").trim() || canvasTheme.roseCoreRgb;
     canvasTheme.roseGlowRgb = rootStyles.getPropertyValue("--rose-glow-rgb").trim() || canvasTheme.roseGlowRgb;
     canvasTheme.textRgb = rootStyles.getPropertyValue("--text-rgb").trim() || canvasTheme.textRgb;
+    canvasTheme.liquidEffectRgb = rootStyles.getPropertyValue("--liquid-effect-rgb").trim() || canvasTheme.liquidEffectRgb;
     canvasTheme.isLight = document.documentElement.getAttribute("data-theme") === "light";
 }
 
@@ -394,6 +396,11 @@ const IMPULSE_LERP = 0.35;
 const IMPULSE_DECAY = 0.86;
 const IMPULSE_STAR_MULT = 18;
 
+/* Controle de efeito liquid text no título hero */
+let heroTextLiquidActive = false;
+let heroLiquidStartTime = 0;
+const HERO_LIQUID_DURATION = 1200; // 1.2 segundos
+
 /**
  * Calcula as faixas logicas de scroll usadas pela pagina.
  *
@@ -430,7 +437,6 @@ const getScrollTargets = () => {
    ESTRELAS 3D (2D CANVAS)
 ========================= */
 const stars = [];
-const lightBlooms = [];
 
 function isFieldLocked() {
     return (
@@ -505,106 +511,11 @@ class Star {
     }
 }
 
-/**
- * Flores suaves no fundo do modo claro, usando a mesma projecao do campo de estrelas.
- */
-class LightBloom {
-    constructor() { this.reset(); }
-    reset() {
-        if (!canvas) return;
-        this.x = (Math.random() - 0.5) * canvas.width * 2.2;
-        this.y = (Math.random() - 0.5) * canvas.height * 2.2;
-        this.z = canvas.width * (0.18 + Math.random() * 1.2);
-        this.prevZ = this.z;
-        this.speed = 0.22 + Math.random() * 0.48;
-        this.baseSize = (isMobileUI ? 12 : 16) + Math.random() * (isMobileUI ? 6 : 10);
-        this.rotation = Math.random() * Math.PI * 2;
-        this.rotationSpeed = (Math.random() - 0.5) * 0.02;
-        this.petalCount = Math.random() > 0.72 ? 6 : 5;
-    }
-    update(travelSpeed) {
-        this.prevZ = this.z;
-        this.z -= travelSpeed * this.speed;
-        this.rotation += this.rotationSpeed + travelSpeed * 0.0008;
-        if (this.z <= 1) this.reset();
-        if (this.z > canvas.width * 2) this.reset();
-    }
-    draw() {
-        if (!canvas || !ctx || !canvasTheme.isLight) return;
-        const warpStretch = 1 + warp * 0.35;
-        const prevZWarp = this.prevZ + warp * 80;
-        const point = projectFieldPoint(this.x, this.y, this.z, 500);
-        const previousPoint = projectFieldPoint(this.x, this.y, prevZWarp, 500 * warpStretch);
-        const coords = [point.x, point.y, previousPoint.x, previousPoint.y];
-        if (!coords.every(Number.isFinite)) return;
 
-        const alpha = Math.max(0, Math.min(0.68, (1 - this.z / canvas.width) * 0.74));
-        if (alpha <= 0.05) return;
-
-        const size = this.baseSize * (0.42 + alpha * 1.8 + warp * 0.12);
-        const margin = size * 4;
-        if (
-            point.x < -margin ||
-            point.x > canvas.width + margin ||
-            point.y < -margin ||
-            point.y > canvas.height + margin
-        ) {
-            return;
-        }
-
-        ctx.save();
-        ctx.strokeStyle = `rgba(${canvasTheme.roseGlowRgb},${alpha * 0.16})`;
-        ctx.lineWidth = Math.max(0.7, size * 0.05);
-        ctx.beginPath();
-        ctx.moveTo(previousPoint.x, previousPoint.y);
-        ctx.lineTo(point.x, point.y);
-        ctx.stroke();
-
-        ctx.translate(point.x, point.y);
-        ctx.rotate(this.rotation);
-        ctx.shadowColor = `rgba(${canvasTheme.roseGlowRgb},${alpha * 0.22})`;
-        ctx.shadowBlur = size * 0.45;
-
-        const petalOffset = size * 0.56;
-        const petalRadiusX = size * 0.28;
-        const petalRadiusY = size * 0.5;
-        for (let i = 0; i < this.petalCount; i++) {
-            ctx.save();
-            ctx.rotate((Math.PI * 2 * i) / this.petalCount);
-            ctx.fillStyle = `rgba(${canvasTheme.roseRgb},${Math.min(0.9, alpha * 1.18)})`;
-            ctx.beginPath();
-            ctx.ellipse(0, petalOffset, petalRadiusX, petalRadiusY, 0, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.strokeStyle = `rgba(${canvasTheme.roseGlowRgb},${alpha * 0.34})`;
-            ctx.lineWidth = Math.max(0.6, size * 0.04);
-            ctx.stroke();
-            ctx.restore();
-        }
-
-        ctx.fillStyle = `rgba(${canvasTheme.roseGlowRgb},${alpha * 0.05})`;
-        ctx.beginPath();
-        ctx.arc(0, 0, size * 0.72, 0, Math.PI * 2);
-        ctx.fill();
-
-        ctx.fillStyle = `rgba(${canvasTheme.roseCoreRgb},${Math.min(0.82, alpha * 1.2)})`;
-        ctx.beginPath();
-        ctx.arc(0, 0, size * 0.2, 0, Math.PI * 2);
-        ctx.fill();
-
-        ctx.strokeStyle = `rgba(${canvasTheme.roseGlowRgb},${alpha * 0.28})`;
-        ctx.lineWidth = Math.max(0.6, size * 0.05);
-        ctx.beginPath();
-        ctx.arc(0, 0, size * 0.38, 0, Math.PI * 2);
-        ctx.stroke();
-        ctx.restore();
-    }
-}
 
 if (canvas) {
     const starCount = isMobileUI ? 120 : 300;
-    const bloomCount = isMobileUI ? 8 : 18;
     for (let i = 0; i < starCount; i++) stars.push(new Star());
-    for (let i = 0; i < bloomCount; i++) lightBlooms.push(new LightBloom());
 }
 
 /* =========================
@@ -698,6 +609,49 @@ function drawWireframeText(opacity) {
     octx.shadowBlur = canvasTheme.isLight ? 20 : 20;
     octx.strokeText(heroLabel, textX, textY);
 
+    /* Efeito liquid text no título hero */
+    if (heroTextLiquidActive) {
+        const elapsed = Date.now() - heroLiquidStartTime;
+        const progress = (elapsed % HERO_LIQUID_DURATION) / HERO_LIQUID_DURATION;
+        
+        const textMetrics = octx.measureText(heroLabel);
+        const textWidth = textMetrics.width;
+        const textLeft = textX - textWidth / 2;
+        const textRight = textX + textWidth / 2;
+        
+        /* Cria um gradiente que varre da esquerda para direita */
+        const gradient = octx.createLinearGradient(
+            textLeft + textWidth * (progress - 0.4),
+            textY - scaledSize,
+            textLeft + textWidth * (progress + 0.4),
+            textY + scaledSize
+        );
+        
+        const rgbValues = canvasTheme.liquidEffectRgb.split(",").map(s => parseInt(s.trim()));
+        const [r, g, b] = rgbValues;
+        
+        /* Gradiente brilhante que passa pelo texto */
+        gradient.addColorStop(0, `rgba(${r},${g},${b},0)`);
+        gradient.addColorStop(0.25, `rgba(${r},${g},${b},0.4)`);
+        gradient.addColorStop(0.5, `rgba(${r},${g},${b},1)`);
+        gradient.addColorStop(0.75, `rgba(${r},${g},${b},0.4)`);
+        gradient.addColorStop(1, `rgba(${r},${g},${b},0)`);
+    
+        
+        /* Desenha o efeito com fillText para mais impacto */
+        octx.globalAlpha = opacity * 0.9;
+        octx.fillStyle = gradient;
+        octx.fillText(heroLabel, textX, textY);
+        
+        /* Adiciona contorno brilhante */
+        octx.globalAlpha = opacity * 0.7;
+        octx.strokeStyle = gradient;
+        octx.lineWidth = scaledSize * 0.08;
+        octx.strokeText(heroLabel, textX, textY);
+        
+        octx.globalAlpha = opacity;
+    }
+
     octx.restore();
 }
 
@@ -714,9 +668,6 @@ const renderStars = () => {
     }
     const travelSpeed = getFieldTravelSpeed();
     stars.forEach(s => { s.update(travelSpeed); s.draw(); });
-    if (canvasTheme.isLight) {
-        lightBlooms.forEach(bloom => { bloom.update(travelSpeed); bloom.draw(); });
-    }
 };
 
 /* =========================
@@ -1373,9 +1324,13 @@ const closeProject = () => {
 
 /**
  * Navega para o link do projeto ativo respeitando o alvo configurado no card.
+ * Reutiliza cleanupProjectState() para consolidar lógica de limpeza.
  */
 const visitProject = () => {
-    if (!activeProject?.href || document.body.classList.contains("is-transitioning")) return;
+    const href = activeProject?.href;
+    const targetBlank = activeProject?.targetBlank;
+    
+    if (!href || document.body.classList.contains("is-transitioning")) return;
 
     document.body.classList.add("is-transitioning");
     projectView?.classList.remove("is-open");
@@ -1384,27 +1339,15 @@ const visitProject = () => {
     focusVignette?.classList.remove("is-on");
 
     window.setTimeout(() => {
-        if (activeProject.targetBlank) {
-            window.open(activeProject.href, "_blank");
-            setActiveCardHidden(false);
-            document.body.classList.remove("is-transitioning");
-            document.body.classList.remove("is-project-open");
-            projects?.classList.remove("is-fading");
-            activeCard = null;
-            activeCardRect = null;
-            activeProject = null;
-            starCinematicLock = false;
-            starsFreeze = false;
-            starsImpulseEnabled = true;
-            lastScrollY = window.scrollY;
-            lastScrollT = performance.now();
-            scrollImpulse = 0;
-            scrollImpulseTarget = 0;
-            warpTarget = 0;
-            warp = 0;
-        } else {
-            window.location.href = activeProject.href;
-        }
+        const navigateAway = () => {
+            cleanupProjectState();
+            if (targetBlank) {
+                window.open(href, "_blank");
+            } else {
+                window.location.href = href;
+            }
+        };
+        navigateAway();
     }, 300);
 };
 
@@ -1578,4 +1521,113 @@ window.addEventListener("keydown", (e) => {
   syncBoot();
   const obs = new MutationObserver(syncBoot);
   obs.observe(document.body, { attributes: true, attributeFilter: ["class"] });
+})();
+
+/* =========================
+   NAVBAR LIQUID EFFECT
+========================= */
+(() => {
+  const navWrap = document.querySelector('.nav-tech__wrap');
+  const nav = document.querySelector('.nav-tech');
+  if (!navWrap || !nav) return;
+
+  const EFFECT_INTERVAL = 3000;  // 3 segundos entre efeitos
+  const EFFECT_DURATION = 1200;  // 1.2 segundos de duração
+  let liquidTimer = null;
+  let isHovering = false;
+
+  /**
+   * Ativa o efeito líquido uma vez
+   */
+  const triggerLiquidEffect = () => {
+    if (isHovering) return; // Não ativa se estiver em hover
+
+    navWrap.classList.add('nav-liquid-active');
+    
+    // Remove a classe após a animação terminar
+    setTimeout(() => {
+      navWrap.classList.remove('nav-liquid-active');
+    }, EFFECT_DURATION);
+  };
+
+  /**
+   * Inicia o timer de 7 segundos
+   */
+  const startLiquidTimer = () => {
+    if (liquidTimer) clearTimeout(liquidTimer);
+    liquidTimer = setTimeout(triggerLiquidEffect, EFFECT_INTERVAL);
+  };
+
+  /**
+   * Detecta entrada do mouse
+   */
+  nav.addEventListener('mouseenter', () => {
+    isHovering = true;
+    if (liquidTimer) clearTimeout(liquidTimer);
+    navWrap.classList.remove('nav-liquid-active'); // Para efeito imediatamente
+  });
+
+  /**
+   * Detecta saída do mouse - reinicia o timer
+   */
+  nav.addEventListener('mouseleave', () => {
+    isHovering = false;
+    startLiquidTimer(); // Reinicia o contador de 7 segundos
+  });
+
+  // Inicia o timer na página carregada
+  startLiquidTimer();
+})();
+
+/* =========================
+   HERO TEXT LIQUID EFFECT
+========================= */
+(() => {
+  const EFFECT_INTERVAL = 3000;  // 3 segundos entre efeitos
+  const EFFECT_DURATION = 1200;  // 1.2 segundos de duração (mesmo que CSS)
+  let heroLiquidTimer = null;
+  let navIsHovering = false;
+
+  /**
+   * Ativa o efeito líquido no texto hero uma vez
+   */
+  const triggerHeroLiquidEffect = () => {
+    if (navIsHovering) return; // Não ativa se navbar estiver em hover
+    
+    heroTextLiquidActive = true;
+    heroLiquidStartTime = Date.now();
+    
+    // Desativa após a duração da animação
+    setTimeout(() => {
+      heroTextLiquidActive = false;
+    }, EFFECT_DURATION);
+  };
+
+  /**
+   * Inicia o timer de 7 segundos
+   */
+  const startHeroLiquidTimer = () => {
+    if (heroLiquidTimer) clearTimeout(heroLiquidTimer);
+    heroLiquidTimer = setTimeout(triggerHeroLiquidEffect, EFFECT_INTERVAL);
+  };
+
+  /**
+   * Monitora o estado de hover da navbar para coordenar efeitos
+   */
+  const nav = document.querySelector('.nav-tech');
+  if (nav) {
+    nav.addEventListener('mouseenter', () => {
+      navIsHovering = true;
+      if (heroLiquidTimer) clearTimeout(heroLiquidTimer);
+      heroTextLiquidActive = false;
+    });
+
+    nav.addEventListener('mouseleave', () => {
+      navIsHovering = false;
+      startHeroLiquidTimer();
+    });
+  }
+
+  // Inicia o timer na página carregada
+  startHeroLiquidTimer();
 })();
